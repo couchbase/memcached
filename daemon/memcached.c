@@ -6511,7 +6511,8 @@ static SERVER_HANDLE_V1 *get_server_api(void)
         .get_current_time = get_current_time,
         .parse_config = parse_config,
         .shutdown = shutdown_server,
-        .get_config = get_config
+        .get_config = get_config,
+        .submit_to_all_workers = submit_to_all_workers
     };
 
     static SERVER_COOKIE_API server_cookie_api = {

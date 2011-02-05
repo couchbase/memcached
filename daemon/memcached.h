@@ -225,6 +225,8 @@ enum thread_type {
     TAP = 13
 };
 
+struct thread_work;
+
 typedef struct {
     pthread_t thread_id;        /* unique ID of this thread */
     struct event_base *base;    /* libevent handle this thread uses */
@@ -235,6 +237,7 @@ typedef struct {
     pthread_mutex_t mutex;      /* Mutex to lock protect access to the pending_io */
     bool is_locked;
     struct conn *pending_io;    /* List of connection with pending async io ops */
+    struct thread_work *work_queue;
     int index;                  /* index of this thread in the threads array */
     enum thread_type type;      /* Type of IO this thread processes */
 
@@ -421,6 +424,8 @@ bool update_event(conn *c, const int new_flags);
 
 void thread_init(int nthreads, struct event_base *main_base);
 void threads_shutdown(void);
+bool submit_to_all_workers(void (*fn)(void *), void *user_data,
+                           void (*completion_cb)(void *), void *cb_user_data);
 
 int  dispatch_event_add(int thread, conn *c);
 void dispatch_conn_new(SOCKET sfd, STATE_FUNC init_state, int event_flags,

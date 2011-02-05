@@ -41,6 +41,26 @@ struct conn_queue {
     pthread_cond_t  cond;
 };
 
+struct thread_work_task;
+
+struct thread_work {
+    struct thread_work *next;
+    struct thread_work_task *task;
+};
+
+struct thread_work_task {
+    pthread_mutex_t lock;
+    int threads_left;
+    bool first_submits;
+
+    void (*fn)(void *);
+    void *fn_user_data;
+    void (*completion_cb)(void *);
+    void *cb_user_data;
+
+    struct thread_work work_items[1];
+};
+
 /* Connection lock around accepting new connections */
 pthread_mutex_t conn_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -72,6 +92,7 @@ static pthread_cond_t init_cond;
 
 static void thread_libevent_process(int fd, short which, void *arg);
 static void libevent_tap_process(int fd, short which, void *arg);
+static struct thread_work *process_thread_work(struct thread_work *work);
 
 /*
  * Initializes a connection queue.
@@ -317,9 +338,16 @@ static void thread_libevent_process(int fd, short which, void *arg) {
     }
 
     pthread_mutex_lock(&me->mutex);
+    struct thread_work *work_queue = me->work_queue;
+    me->work_queue = NULL;
     conn* pending = me->pending_io;
     me->pending_io = NULL;
     pthread_mutex_unlock(&me->mutex);
+
+    while (work_queue != NULL) {
+        work_queue = process_thread_work(work_queue);
+    }
+
     while (pending != NULL) {
         conn *c = pending;
         assert(me == c->thread);
@@ -434,6 +462,15 @@ static void libevent_tap_process(int fd, short which, void *arg) {
     if (memcached_shutdown) {
         event_base_loopbreak(me->base);
         return ;
+    }
+
+    LOCK_THREAD(me);
+    struct thread_work *work_queue = me->work_queue;
+    me->work_queue = NULL;
+    UNLOCK_THREAD(me);
+
+    while (work_queue != NULL) {
+        work_queue = process_thread_work(work_queue);
     }
 
     // Do we have pending closes?
@@ -610,6 +647,116 @@ void notify_io_complete(const void *cookie, ENGINE_ERROR_CODE status)
         notify_thread(thr);
     }
 }
+
+static int enqueue_task_to_other_threads(struct thread_work_task *task) {
+    pthread_t self = pthread_self();
+    int succeeded = 0;
+    for (int i = nthreads-1; i >= 0; i--) {
+        LIBEVENT_THREAD *thread = threads+i;
+
+        if (thread->thread_id == self) {
+            continue;
+        }
+
+        LOCK_THREAD(thread);
+        task->work_items[i].next = thread->work_queue;
+        thread->work_queue = &(task->work_items[i]);
+        UNLOCK_THREAD(thread);
+        notify_thread(thread);
+
+        succeeded++;
+    }
+    return succeeded;
+}
+
+static struct thread_work *process_thread_work(struct thread_work *work) {
+    struct thread_work *next = work->next;
+    struct thread_work_task *task = work->task;
+
+    if (task->first_submits) {
+        assert(task->threads_left == nthreads);
+        task->first_submits = false;
+        /* first thread to run submits work to other threads */
+        int succeeded = enqueue_task_to_other_threads(task);
+        assert(succeeded == nthreads-1);
+    }
+
+    if (task->fn) {
+        task->fn(task->fn_user_data);
+    }
+
+    if (pthread_mutex_lock(&task->lock) != 0) {
+        abort();
+    }
+    int threads_left = --task->threads_left;
+    assert(threads_left >= 0);
+    if (pthread_mutex_unlock(&task->lock) != 0) {
+        abort();
+    }
+
+    if (threads_left == 0) {
+        /* last thread runs completion callback and cleans up */
+        if (task->completion_cb) {
+            task->completion_cb(task->cb_user_data);
+        }
+
+        pthread_mutex_destroy(&task->lock);
+        free(task);
+    }
+
+    return next;
+}
+
+bool submit_to_all_workers(void (*fn)(void *), void *fn_user_data,
+                           void (*completion_cb)(void *), void *cb_user_data) {
+    int rv;
+    struct thread_work_task *task = calloc(1, sizeof(struct thread_work_task)
+                                           + sizeof(struct thread_work)*(nthreads-1));
+    if (task == NULL) {
+        free(task);
+        return false;
+    }
+
+    task->fn = fn;
+    task->fn_user_data = fn_user_data;
+    task->completion_cb = completion_cb;
+    task->cb_user_data = cb_user_data;
+    rv = pthread_mutex_init(&task->lock, NULL);
+    if (rv != 0) {
+        free(task);
+        return false;
+    }
+    task->threads_left = nthreads;
+
+    pthread_t self = pthread_self();
+    bool submitted = false;
+
+    for (int i = nthreads-1; i >= 0; i--) {
+        task->work_items[i].task = task;
+        LIBEVENT_THREAD *thread = threads+i;
+
+        /* cannot touch other threads because we're likely running
+         * under lock */
+        if (self != thread->thread_id) {
+            continue;
+        }
+
+        submitted = true;
+        task->work_items[i].next = thread->work_queue;
+        thread->work_queue = &(task->work_items[i]);
+        notify_thread(thread);
+    }
+
+    /* if we're not one of worker threads, then submit all work now */
+    if (!submitted) {
+        enqueue_task_to_other_threads(task);
+    } else {
+        task->first_submits = true;
+    }
+
+    return true;
+}
+
 
 /* Which thread we assigned a connection to most recently. */
 static int last_thread = -1;

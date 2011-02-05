@@ -59,6 +59,14 @@ extern "C" {
          */
         bool (*get_config)(struct config_item items[]);
 
+        /**
+         * Invokes fn with given user_data on all worker threads
+         * asynchronously. Last worker to complete work will invoke
+         * completion_cb with cb_user_data. Returns false iff work
+         * queuing failed.
+         */
+        bool (*submit_to_all_workers)(void (*fn)(void *), void *user_data,
+                                      void (*completion_cb)(void *), void *cb_user_data);
     } SERVER_CORE_API;
 
     typedef struct {
