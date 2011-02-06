@@ -15,6 +15,8 @@
 #include <pthread.h>
 #include <fcntl.h>
 
+#define NOTIFICATIONS_BATCH_SIZE 64
+
 #define ITEMS_PER_ALLOC 64
 
 extern volatile sig_atomic_t memcached_shutdown;
@@ -272,14 +274,11 @@ static void thread_libevent_process(int fd, short which, void *arg) {
     LIBEVENT_THREAD *me = arg;
     assert(me->type == GENERAL);
     CQ_ITEM *item;
-    char buf[1];
+    char buf[NOTIFICATIONS_BATCH_SIZE];
+    int notifications;
 
-    if (memcached_shutdown) {
-         event_base_loopbreak(me->base);
-         return ;
-    }
-
-    if (recv(fd, buf, 1, 0) != 1) {
+    notifications = recv(fd, buf, sizeof(buf), 0);
+    if (notifications < 1) {
         if (settings.verbose > 0) {
             settings.extensions.logger->log(EXTENSION_LOG_WARNING, NULL,
                                             "Can't read from libevent pipe: %s\n",
@@ -287,9 +286,12 @@ static void thread_libevent_process(int fd, short which, void *arg) {
         }
     }
 
-    item = cq_pop(me->new_conn_queue);
+    if (memcached_shutdown) {
+         event_base_loopbreak(me->base);
+         return ;
+    }
 
-    if (NULL != item) {
+    while ((item = cq_pop(me->new_conn_queue)) != NULL) {
         conn *c = conn_new(item->sfd, item->init_state, item->event_flags,
                            item->read_buffer_size, item->transport, me->base, NULL);
         if (c == NULL) {
@@ -310,6 +312,8 @@ static void thread_libevent_process(int fd, short which, void *arg) {
             c->thread = me;
         }
         cqi_free(item);
+        if (--notifications == 0)
+            break;
     }
 
     pthread_mutex_lock(&me->mutex);
@@ -417,14 +421,9 @@ void finalize_list(conn **list, size_t items) {
 static void libevent_tap_process(int fd, short which, void *arg) {
     LIBEVENT_THREAD *me = arg;
     assert(me->type == TAP);
-    char buf[1];
+    char buf[NOTIFICATIONS_BATCH_SIZE];
 
-    if (memcached_shutdown) {
-        event_base_loopbreak(me->base);
-        return ;
-    }
-
-    if (read(fd, buf, 1) != 1) {
+    if (read(fd, buf, sizeof(buf)) < 1) {
         if (settings.verbose > 0) {
             settings.extensions.logger->log(EXTENSION_LOG_WARNING, NULL,
                                             "Can't read from libevent pipe: %s\n",
@@ -432,7 +431,16 @@ static void libevent_tap_process(int fd, short which, void *arg) {
         }
     }
 
+    if (memcached_shutdown) {
+        event_base_loopbreak(me->base);
+        return ;
+    }
+
     // Do we have pending closes?
+    //
+    // NOTE: that this must not be greater than
+    // NOTIFICATIONS_BATCH_SIZE or else some notifications might be
+    // lost
     const size_t max_items = 256;
     LOCK_THREAD(me);
     conn *pending_close[max_items];
