@@ -5,6 +5,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <arpa/inet.h>
 #include "basic_engine_testsuite.h"
 
 struct test_harness test_harness;
