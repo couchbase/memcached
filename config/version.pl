@@ -11,7 +11,7 @@ chomp $version;
 #my $version = '1.4.2-30-gf966dba';
 #my $version = '1.4.3-rc1';
 #my $version = '1.4.3';
-unless ($version =~ m/^\d+\.\d+\.\d+/) {
+unless ($version =~ m/^membase-(\d+\.)+\d+/) {
     write_file('m4/version.m4', "m4_define([VERSION_NUMBER], [UNKNOWN])\n");
     exit;
 }
