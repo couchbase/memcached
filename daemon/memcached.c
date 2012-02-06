@@ -4126,7 +4126,7 @@ static inline char* process_get_command(conn *c, token_t *tokens, size_t ntokens
                 char *msg;
                 switch (ret) {
                 case ENGINE_KEY_ENOENT:
-                    msg = "KEY_NOT_FOUND";
+                    msg = "NOT_FOUND";
                     break;
                 case ENGINE_TMPFAIL:
                     msg = "SERVER_ERROR temporary failure";
