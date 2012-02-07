@@ -4123,23 +4123,13 @@ static inline char* process_get_command(conn *c, token_t *tokens, size_t ntokens
                 i++;
 
             } else {
-                char *msg;
-                switch (ret) {
-                case ENGINE_KEY_ENOENT:
-                    msg = "NOT_FOUND";
-                    break;
-                case ENGINE_TMPFAIL:
-                    msg = "SERVER_ERROR temporary failure";
-                    break;
-                default:
-                    msg = "SERVER_ERROR internal";
-                    break;
-                }
-
-                if (add_iov(c, msg, strlen(msg)) != 0 ||
-                    add_iov(c, "\r\n", 2) != 0)
-                {
-                    break;
+                if (ret == ENGINE_TMPFAIL) {
+                    char *msg = "SERVER_ERROR temporary failure";
+                    if (add_iov(c, msg, strlen(msg)) != 0 ||
+                        add_iov(c, "\r\n", 2) != 0)
+                    {
+                        break;
+                    }
                 }
 
                 STATS_MISS(c, get, key, nkey);
