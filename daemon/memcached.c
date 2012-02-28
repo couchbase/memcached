@@ -16,6 +16,7 @@
 #include "config.h"
 #include "memcached.h"
 #include "memcached/extension_loggers.h"
+#include "alloc_hooks.h"
 #include "utilities/engine_loader.h"
 
 #include <signal.h>
@@ -7065,6 +7066,15 @@ static SERVER_HANDLE_V1 *get_server_api(void)
         .perform_callbacks = perform_callbacks,
     };
 
+    static ALLOCATOR_HOOKS_API hooks_api = {
+        .add_new_hook = mc_add_new_hook,
+        .remove_new_hook = mc_remove_new_hook,
+        .add_delete_hook = mc_add_delete_hook,
+        .remove_delete_hook = mc_remove_delete_hook,
+        .get_allocator_stats = mc_get_allocator_stats,
+        .get_allocation_size = mc_get_allocation_size
+    };
+
     static SERVER_HANDLE_V1 rv = {
         .interface = 1,
         .core = &core_api,
@@ -7072,7 +7082,8 @@ static SERVER_HANDLE_V1 *get_server_api(void)
         .extension = &extension_api,
         .callback = &callback_api,
         .log = &server_log_api,
-        .cookie = &server_cookie_api
+        .cookie = &server_cookie_api,
+        .alloc_hooks = &hooks_api
     };
 
     if (rv.engine == NULL) {
