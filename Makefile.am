@@ -5,6 +5,7 @@ man_MANS = doc/memcached.1
 bin_PROGRAMS = engine_testapp memcached mcstat
 noinst_PROGRAMS = sizes testapp timedrun
 pkginclude_HEADERS = \
+                     include/memcached/allocator_hooks.h \
                      include/memcached/callback.h \
                      include/memcached/config_parser.h \
                      include/memcached/engine.h \
@@ -12,7 +13,6 @@ pkginclude_HEADERS = \
                      include/memcached/engine_testapp.h \
                      include/memcached/extension.h \
                      include/memcached/extension_loggers.h \
-                     include/memcached/genhash.h \
                      include/memcached/protocol_binary.h \
                      include/memcached/protocol_plugin.h \
                      include/memcached/server_api.h \
@@ -20,6 +20,7 @@ pkginclude_HEADERS = \
                      include/memcached/util.h \
                      include/memcached/vbucket.h \
                      include/memcached/visibility.h
+
 
 # libmemcached_utilities.la needs to be listed first because some of the
 # other modules depend on it
@@ -76,14 +77,11 @@ libmemcached_utilities_la_CPPFLAGS = $(CPPFLAGS) -I$(top_srcdir)/utilities
 libmemcached_utilities_la_LDFLAGS =-R '$(pkglibdir)' -R '$(libdir)'
 libmemcached_utilities_la_SOURCES= \
                         include/memcached/config_parser.h \
-                        include/memcached/genhash.h \
                         include/memcached/util.h \
                         utilities/config_parser.c \
                         utilities/engine_loader.c \
                         utilities/engine_loader.h \
                         utilities/extension_loggers.c \
-                        utilities/genhash.c \
-                        utilities/genhash_int.h \
                         utilities/util.c
 
 memcached_SOURCES = \
@@ -98,14 +96,14 @@ memcached_SOURCES = \
                     daemon/stats.c \
                     daemon/stats.h \
                     daemon/thread.c \
-                    daemon/topkeys.c \
-                    daemon/topkeys.h \
+                    daemon/alloc_hooks.c \
+                    daemon/alloc_hooks.h \
                     trace.h
 memcached_CPPFLAGS = $(CPPFLAGS) -I$(top_srcdir)/daemon
 memcached_LDFLAGS =-R '$(pkglibdir)' -R '$(libdir)'
 memcached_CFLAGS = @PROFILER_FLAGS@
 memcached_DEPENDENCIES = libmemcached_utilities.la
-memcached_LDADD = @PROFILER_LDFLAGS@ libmemcached_utilities.la -levent $(APPLICATION_LIBS)
+memcached_LDADD = @PROFILER_LDFLAGS@ $(MALLOC_LIBS) libmemcached_utilities.la -levent $(APPLICATION_LIBS)
 
 if EMBEDDED_LIBEVENT
 libevent.stamp:
@@ -177,7 +175,8 @@ ascii_scrub_la_LDFLAGS= -avoid-version -shared -module -no-undefined
 
 # An extension that supports partital read/write operation
 fragment_rw_ops_la_CPPFLAGS = $(CPPFLAGS) -I$(top_srcdir)/extensions
-fragment_rw_ops_la_SOURCES = extensions/protocol/fragment_rw.c
+fragment_rw_ops_la_SOURCES = extensions/protocol/fragment_rw.c \
+                             extensions/protocol/fragment_rw.h
 fragment_rw_ops_la_LDFLAGS = -avoid-version -shared -module -no-undefined
 fragment_rw_ops_la_LIBADD = libmemcached_utilities.la $(LIBM)
 fragment_rw_ops_la_DEPENDENCIES = libmemcached_utilities.la
@@ -256,7 +255,7 @@ default_engine_dtrace.lo: $(default_engine_la_OBJECTS)
 	sed -e s,assoc,default_engine_dtrace,g default_engine_la-assoc.lo > default_engine_dtrace.lo
 
 DIST_DIRS = scripts
-EXTRA_DIST = doc scripts t memcached.spec memcached_dtrace.d m4/version.m4 \
+EXTRA_DIST = doc scripts t memcached_dtrace.d m4/version.m4 \
              testsuite/breakdancer/engine_test.py testsuite/breakdancer/breakdancer.py \
              LICENSE CONTRIBUTING HACKING win32
 

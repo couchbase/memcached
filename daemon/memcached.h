@@ -14,7 +14,6 @@
 #include <memcached/extension.h>
 
 #include "cache.h"
-#include "topkeys.h"
 
 #include "sasl_defs.h"
 
@@ -142,15 +141,6 @@ struct thread_stats {
     uint64_t          auth_cmds;
     uint64_t          auth_errors;
     struct slab_stats slab_stats[MAX_NUMBER_OF_SLAB_CLASSES];
-};
-
-
-/**
- * The stats structure the engine keeps track of
- */
-struct independent_stats {
-    topkeys_t *topkeys;
-    struct thread_stats thread_stats[];
 };
 
 /**
@@ -480,7 +470,7 @@ bool conn_add_tap_client(conn *c);
 bool conn_setup_tap_stream(conn *c);
 
 /* If supported, give compiler hints for branch prediction. */
-#if !defined(__GNUC__) || (__GNUC__ == 2 && __GNUC_MINOR__ < 96)
+#if !defined(__builtin_expect) && (!defined(__GNUC__) || (__GNUC__ == 2 && __GNUC_MINOR__ < 96))
 #define __builtin_expect(x, expected_value) (x)
 #endif
 
