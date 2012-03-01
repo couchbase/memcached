@@ -110,3 +110,27 @@ size_t mc_get_allocation_size(void* ptr) {
     }
     return 0;
 }
+
+size_t mc_get_fragmented_size() {
+    init();
+    size_t heap_bytes = 0;
+    size_t allocated_bytes = 0;
+    size_t free_bytes = 0;
+    if (getStatsProp.ptr) {
+        (getStatsProp.func)("generic.heap_size", &heap_bytes);
+        (getStatsProp.func)("generic.current_allocated_bytes", &allocated_bytes);
+        (getStatsProp.func)("tcmalloc.pageheap_free_bytes", &free_bytes);
+        return heap_bytes - allocated_bytes - free_bytes;
+    }
+    return 0;
+}
+
+size_t mc_get_allocated_size() {
+    init();
+    size_t allocated_bytes = 0;
+    if (getStatsProp.ptr) {
+        (getStatsProp.func)("generic.current_allocated_bytes", &allocated_bytes);
+        return allocated_bytes;
+    }
+    return 0;
+}

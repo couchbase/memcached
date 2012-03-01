@@ -35,6 +35,8 @@ typedef struct engine_allocator_hooks_v1 {
     bool (*remove_delete_hook)(void (*)(const void* ptr));
     allocator_stat* (*get_allocator_stats)(int*);
     size_t (*get_allocation_size)(void*);
+    size_t (*get_fragmented_size)(void);
+    size_t (*get_allocated_size)(void);
 } ALLOCATOR_HOOKS_API;
 
 #ifdef __cplusplus

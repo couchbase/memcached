@@ -27,5 +27,7 @@ bool mc_add_delete_hook(void (*)(const void* ptr));
 bool mc_remove_delete_hook(void (*)(const void* ptr));
 allocator_stat* mc_get_allocator_stats(int*);
 size_t mc_get_allocation_size(void*);
+size_t mc_get_fragmented_size(void);
+size_t mc_get_allocated_size(void);
 
 #endif /* MEM_HOOKS_H */
