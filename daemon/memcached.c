@@ -6932,7 +6932,6 @@ int main (int argc, char **argv) {
     int c;
     bool lock_memory = false;
     bool do_daemonize = false;
-    bool preallocate = false;
     int maxcore = 0;
     char *username = NULL;
     char *pid_file = NULL;
@@ -7140,7 +7139,6 @@ int main (int argc, char **argv) {
             break;
         case 'L' :
             if (enable_large_pages() == 0) {
-                preallocate = true;
                 old_opts += sprintf(old_opts, "preallocate=true;");
             }
             break;
@@ -7513,8 +7511,6 @@ int main (int argc, char **argv) {
 
     /* create the listening socket, bind it, and init */
     if (settings.socketpath == NULL) {
-        int udp_port;
-
         const char *portnumber_filename = getenv("MEMCACHED_PORT_FILENAME");
         char temp_portnumber_filename[PATH_MAX];
         FILE *portnumber_file = NULL;
@@ -7546,8 +7542,6 @@ int main (int argc, char **argv) {
          * then daemonise if needed, then init libevent (in some cases
          * descriptors created by libevent wouldn't survive forking).
          */
-        udp_port = settings.udpport ? settings.udpport : settings.port;
-
         /* create the UDP listening socket and bind it */
         if (settings.udpport && server_sockets(settings.udpport, udp_transport,
                                                portnumber_file)) {
