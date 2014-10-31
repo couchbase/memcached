@@ -910,10 +910,8 @@ conn *conn_new(const SOCKET sfd, const int parent_port,
     return c;
 }
 
-static void conn_cleanup(conn *c) {
-    assert(c != NULL);
-
-    if (c->item) {
+static void conn_cleanup_engine_allocations(conn* c) {
+   if (c->item) {
         settings.engine.v1->release(settings.engine.v0, c, c->item);
         c->item = 0;
     }
@@ -923,6 +921,10 @@ static void conn_cleanup(conn *c) {
             settings.engine.v1->release(settings.engine.v0, c, *(c->icurr));
         }
     }
+}
+
+static void conn_cleanup(conn *c) {
+    assert(c != NULL);
 
     if (c->suffixleft != 0) {
         for (; c->suffixleft > 0; c->suffixleft--, c->suffixcurr++) {
@@ -5935,6 +5937,9 @@ bool conn_closing(conn *c) {
     unregister_event(c);
     safe_close(c->sfd);
     c->sfd = INVALID_SOCKET;
+
+    /* engine::release any allocated state */
+    conn_cleanup_engine_allocations(c);
 
     if (c->refcount > 1 || c->ewouldblock) {
         conn_set_state(c, conn_pending_close);
