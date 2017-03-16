@@ -37,7 +37,7 @@
 const char* je_malloc_conf =
     /* Use just one arena, instead of the default based on number of CPUs.
        Helps to minimize heap fragmentation. */
-    "narenas:1";
+    "narenas:13";
 
 static int jemalloc_get_stats_prop(const char* property, size_t* value) {
     size_t size = sizeof(*value);
