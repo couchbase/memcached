@@ -78,3 +78,11 @@ bool DummyAllocHooks::get_allocator_property(const char* name, size_t* value) {
 bool DummyAllocHooks::set_allocator_property(const char* name, size_t value) {
     return false;
 }
+
+bool DummyAllocHooks::set_allocator_arena(size_t arenaid) {
+    return false;
+}
+
+size_t DummyAllocHooks::get_arena_allocation_size(size_t arenaid) {
+    return 0;
+}

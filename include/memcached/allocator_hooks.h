@@ -123,6 +123,16 @@ typedef struct engine_allocator_hooks_v1 {
      */
     bool (*enable_thread_cache)(bool enable);
 
+    /**
+     * Sets the current memory region/arena for allocation
+     */
+    bool (*set_allocator_arena)(size_t arenaid);
+
+    /**
+     * Returns the memory currently allocated in an arena
+     */
+    size_t (*get_arena_allocation_size)(size_t arenaid);
+
 } ALLOCATOR_HOOKS_API;
 
 #ifdef __cplusplus

@@ -21,7 +21,7 @@
 #include "memcached/visibility.h"
 #include <memcached/extension_loggers.h>
 #include <platform/cb_malloc.h>
-
+#include <platform/strerror.h>
 
 /* Irrespective of how jemalloc was configured on this platform,
 * don't rename je_FOO to FOO.
@@ -42,6 +42,38 @@ const char* je_malloc_conf =
 static int jemalloc_get_stats_prop(const char* property, size_t* value) {
     size_t size = sizeof(*value);
     return je_mallctl(property, value, &size, NULL, 0);
+}
+
+// set je_malloc specific property
+static int je_set(const char* property, unsigned int value) {
+    return je_mallctl(property, NULL, NULL, (void*)&value, sizeof(value));
+}
+
+template<typename T>
+T je_get(const char* property) {
+    T value;
+    size_t size = sizeof(value);
+    value = 0;
+    int err = je_mallctl(property, (void*)&value, &size, NULL, 0);
+    if (err) {
+        get_stderr_logger()->log(EXTENSION_LOG_WARNING, NULL,
+                                 "je_get [%s] error %d - "
+                                 "could not determine narenas.",cb_strerror(err), err);
+    }
+    return value;
+}
+
+// je_malloc specific mib info
+template<typename T>
+T je_get_mib2(const char* propname, size_t i)  {
+    size_t mib[6];
+    T v;
+    size_t miblen = sizeof(mib) / sizeof(size_t);
+    size_t sz = sizeof(T);
+    je_mallctlnametomib(propname, mib, &miblen);
+    mib[2] = i;
+    je_mallctlbymib(mib, miblen, (void *)&v, &sz, NULL, 0);
+    return v;
 }
 
 struct write_state {
@@ -240,4 +272,21 @@ bool JemallocHooks::get_allocator_property(const char* name, size_t* value) {
 bool JemallocHooks::set_allocator_property(const char* name, size_t value) {
     /* Not yet implemented */
     return 0;
+}
+
+bool JemallocHooks::set_allocator_arena(size_t arenaid) {
+    return 0 == je_set("thread.arena", arenaid);
+}
+
+size_t JemallocHooks::get_arena_allocation_size(size_t arenaid) {
+    size_t totalSize = 1;
+
+    /* jemalloc can cache its statistics - force a refresh */
+    je_mallctl("epoch", &totalSize, &totalSize, &totalSize, sizeof(totalSize));
+    totalSize = 0;
+
+    totalSize += je_get_mib2<size_t>("stats.arenas.0.small.allocated", arenaid);
+    totalSize += je_get_mib2<size_t>("stats.arenas.0.large.allocated", arenaid);
+    totalSize += je_get_mib2<size_t>("stats.arenas.0.huge.allocated", arenaid);
+    return totalSize;
 }
