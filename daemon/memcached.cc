@@ -2002,10 +2002,11 @@ static SERVER_HANDLE_V1 *get_server_api(void)
         hooks_api.enable_thread_cache = AllocHooks::enable_thread_cache;
         hooks_api.set_allocator_arena = AllocHooks::set_allocator_arena;
         hooks_api.get_arena_allocation_size = AllocHooks::get_arena_allocation_size;
+        hooks_api.get_allocator_property = AllocHooks::get_allocator_property;
+        hooks_api.set_allocator_property = AllocHooks::set_allocator_property;
 
         document_api.pre_link = pre_link_document;
         document_api.pre_expiry = document_pre_expiry;
-
 
         rv.interface = 1;
         rv.core = &core_api;

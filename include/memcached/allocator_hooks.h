@@ -133,6 +133,12 @@ typedef struct engine_allocator_hooks_v1 {
      */
     size_t (*get_arena_allocation_size)(size_t arenaid);
 
+    /**
+     * Get/Set specific allocator properties
+     */
+    bool (*get_allocator_property)(const char* name, void* value, size_t* size);
+    bool (*set_allocator_property)(const char* name, void* value, size_t size);
+
 } ALLOCATOR_HOOKS_API;
 
 #ifdef __cplusplus
