@@ -71,10 +71,18 @@ bool DummyAllocHooks::enable_thread_cache(bool enable) {
     return true;
 }
 
-bool DummyAllocHooks::get_allocator_property(const char* name, size_t* value) {
+bool DummyAllocHooks::get_allocator_property(const char* name, void* value, size_t* size) {
     return false;
 }
 
-bool DummyAllocHooks::set_allocator_property(const char* name, size_t value) {
+bool DummyAllocHooks::set_allocator_property(const char* name, void *value, size_t sz) {
     return false;
+}
+
+bool DummyAllocHooks::set_allocator_arena(size_t arenaid) {
+    return false;
+}
+
+size_t DummyAllocHooks::get_arena_allocation_size(size_t arenaid) {
+    return 0;
 }
