@@ -111,8 +111,10 @@ const char* McbpStateMachine::getTaskName(TaskFunction task) const {
         return "conn_delete_bucket";
     } else if (task == conn_sasl_auth) {
         return "conn_sasl_auth";
+    } else if (task == conn_destroyed) {
+        return "conn_destroyed";
     } else {
-        throw std::invalid_argument("Unknown task");
+        return "<unknown task>";
     }
 }
 
