@@ -77,7 +77,7 @@ void set_ssl_protocol_mask(const std::string& mask) {
 
     } catch (...) {
         LOG_WARNING(nullptr,
-                    "An error occured while decoding the SSL protocol: %s",
+                    "An error occurred while decoding the SSL protocol: %s",
                     mask.c_str());
     }
 }
